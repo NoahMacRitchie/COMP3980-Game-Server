@@ -31,9 +31,9 @@
 #define GAME_ACTION_OUT_OF_TURN 51
 
 #define CONFIRMATION_VALUE 1
-#define INFORMATION_VALUE 1
-#define META_ACTION_VALUE 1
-#define GAME_ACTION_VALUE 1
+#define INFORMATION_VALUE 2
+#define META_ACTION_VALUE 3
+#define GAME_ACTION_VALUE 4
 
 #define TEAM_X 1
 #define TEAM_O 2
@@ -171,9 +171,6 @@ int receive_packet(Environment *env)
     GameEnvironment * game_env = (GameEnvironment *) env;
     printf("ENTERED STATE: receive_packet\n");
     printf("active fd: %d, waitingRPS: %d, waitingTTT: %d\n",game_env->active_fd, game_env->waiting_player_RPS, game_env->waiting_player_TTT);
-    // printf("sleeping...\n");
-    // sleep(1);
-    
 
     int server_fd = game_env->server_fd;
     fd_set ready_sockets = *game_env->current_sockets;
@@ -222,30 +219,7 @@ int handle_packet(Environment *env)
         case 4:  return GAME_ACTION_REQUEST;
         error_msg(client,CLIENT_INVALID_TYPE,received_packet[REQ_TYPE_BYTE_INDEX]);
         default: return RECEIVE_PACKET;
-
-
     }
-
-
-    // bool has_game = set_active_game(env, client);
-
-    // if (receive_packet[0] == 'J' && receive_packet[1] == 'G' && !has_game)
-    // {
-    //     if (game_env->waiting_player == EMPTY_QUEUE)
-    //     {
-    //         game_env->waiting_player = client;
-    //         return RECEIVE_PACKET;
-    //     }
-    //     return STARTING_GAME;
-    // }
-
-    // if (receive_packet[0] == 'A' && has_game)
-    // {
-
-    //     return ATTEMPTED_MOVE;
-    // }
-
-    // return ERROR_STATE;
 }
 
 int confirmation_request(Environment *env){
@@ -402,6 +376,21 @@ int start_game(Environment *env){
 
 int quit_game(Environment *env){
     printf("ENTERED STATE: quit_game\n");
+    GameEnvironment *game_env = (GameEnvironment *)env;
+    char *received_packet = game_env->received_packet;
+    if(set_active_game(env, game_env->active_fd) == false){
+        error_msg(game_env->active_fd, CLIENT_INVALID_REQUEST,received_packet[REQ_TYPE_BYTE_INDEX]);
+        printf("client tried to quite but not in a game sending invalid request\n");
+        return RECEIVE_PACKET;
+    }
+    
+    GameState *gs = game_env->gamestates[game_env->active_game_state_index];
+
+    close(game_env->active_fd);
+    clean_game_states(env);
+    printf("Closed client connected and cleaned up games\n");
+    
+    return RECEIVE_PACKET;
 
 }
 bool is_end_game_RPS(Environment * env){
@@ -410,7 +399,7 @@ bool is_end_game_RPS(Environment * env){
     int player_num = gs->player_fds[PLAYER_ONE] == game_env->active_fd ? PLAYER_ONE : PLAYER_TWO;
     RPSGameState * gs_RPS = (RPSGameState *)gs;
 
-    if(gs_RPS->moves[PLAYER_ONE] != -1 && gs_RPS->moves[PLAYER_TWO != -1]){
+    if(gs_RPS->moves[PLAYER_ONE] != -1 && gs_RPS->moves[PLAYER_TWO] != -1){
         return true;
     }
     return false;
@@ -626,7 +615,6 @@ int make_move(Environment *env){
 
 int get_placement_RPS(int my_move, int opponents_move){
     int next_move = (my_move % 3) + 1;
-    //FIXME: broken logic
     if(my_move == opponents_move){
         return TIE;
     }

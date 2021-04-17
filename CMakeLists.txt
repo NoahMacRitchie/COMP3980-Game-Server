@@ -14,6 +14,3 @@ target_link_libraries(game_state)
 
 add_executable(server server.c)
 target_link_libraries(server dcfsm dc pthread state_functions game_state)
-
-add_executable(client client.c)
-target_link_libraries(client dcfsm dc pthread state_functions)

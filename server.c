@@ -16,7 +16,7 @@
 #define PORT 2034
 #define BACKLOG 5
 #define STARTING_UID_INDEX 4
-#define UDP_BUF_SIZE 5010
+#define UDP_BUF_SIZE 5008
 int get_server_socket()
 {
     struct sockaddr_in addr;
@@ -116,7 +116,11 @@ void* udp_worker_loop(void* env){
         
         int uid = get_uid_from_msg(client_message);
         int game_index = find_my_game_index(env, uid);
-
+        printf("Recieved bytes: ");
+        for (int i = 0; i < 16; i++) {
+            printf("%u ", client_message[i]);
+        }
+        printf("\n");
         if(game_index == -1) continue;
 
         GameState *gs = game_env->gamestates[game_index];
@@ -129,13 +133,14 @@ void* udp_worker_loop(void* env){
             gs->player_addresses[player_num] = client_addr;
             gs->voice_connected[player_num] = true;
         }
+        
         printf("uid: %d p_num: %d opp_num: %d\n", uid, player_num, opponent_num);
         if(gs->voice_connected[opponent_num] == false) continue;
 
         struct sockaddr_in opponent_addr = gs->player_addresses[opponent_num];
         
         
-        printf("Recieved bytes: ");
+        printf("Sending bytes: ");
         for (int i = 0; i < 16; i++) {
             printf("%u ", client_message[i]);
         }
@@ -185,6 +190,7 @@ int main(int argc, char *argv[])
             {JOIN_GAME, START_GAME, &start_game},
             {START_GAME, RECEIVE_PACKET, &receive_packet},
             {META_REQUEST, QUIT_GAME, &quit_game},
+            {QUIT_GAME, RECEIVE_PACKET, &receive_packet},
             {GAME_ACTION_REQUEST, MAKE_MOVE, &make_move},
             {MAKE_MOVE, RECEIVE_PACKET, &receive_packet},
             {MAKE_MOVE, END_GAME, &end_game},
